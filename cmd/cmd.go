@@ -22,6 +22,8 @@ var (
 	relayURL        string
 	verify          bool
 	hideProgressBar bool
+	i2p             string
+	tor             string
 )
 
 func Execute() error {

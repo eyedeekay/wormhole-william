@@ -27,7 +27,8 @@ func recvCommand() *cobra.Command {
 
 	cmd.Flags().BoolVarP(&verify, "verify", "v", false, "display verification string (and wait for approval)")
 	cmd.Flags().BoolVar(&hideProgressBar, "hide-progress", false, "suppress progress-bar display")
-
+	cmd.Flags().StringVar(&i2p, "i2p", "", "anonymize traffic with i2p(set the value to the SAM API address, usually 127.0.0.1:7656)")
+	cmd.Flags().StringVar(&tor, "tor", "", "anonymize traffic with i2p(set the value to the Tor SOCKS address, usually 127.0.0.1:9050)")
 	return &cmd
 }
 

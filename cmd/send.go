@@ -54,6 +54,8 @@ func sendCommand() *cobra.Command {
 	cmd.Flags().StringVar(&codeFlag, "code", "", "human-generated code phrase")
 	cmd.Flags().StringVar(&sendTextFlag, "text", "", "text message to send, instead of a file.\nUse '-' to read from stdin")
 	cmd.Flags().BoolVar(&hideProgressBar, "hide-progress", false, "suppress progress-bar display")
+	cmd.Flags().StringVar(&i2p, "i2p", "", "anonymize traffic with i2p(set the value to the SAM API address, usually 127.0.0.1:7656)")
+	cmd.Flags().StringVar(&tor, "tor", "", "anonymize traffic with i2p(set the value to the Tor SOCKS address, usually 127.0.0.1:9050)")
 
 	return &cmd
 }
@@ -62,6 +64,8 @@ func newClient() wormhole.Client {
 	c := wormhole.Client{
 		RendezvousURL:             relayURL,
 		PassPhraseComponentLength: codeLen,
+		I2P:                       i2p,
+		Tor:                       tor,
 	}
 
 	if verify {
