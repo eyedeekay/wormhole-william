@@ -37,7 +37,7 @@ func (c *Client) SendText(ctx context.Context, msg string, opts ...SendOption) (
 		}
 	}
 
-	rc := rendezvous.NewClient(c.url(), sideID, appID)
+	rc := rendezvous.NewClient(c.url(), sideID, appID, c.I2P, c.Tor)
 
 	_, err := rc.Connect(ctx)
 	if err != nil {
@@ -199,7 +199,7 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 
 	sideID := crypto.RandSideID()
 	appID := c.appID()
-	rc := rendezvous.NewClient(c.url(), sideID, appID)
+	rc := rendezvous.NewClient(c.url(), sideID, appID, c.I2P, c.Tor)
 
 	_, err := rc.Connect(ctx)
 	if err != nil {
@@ -297,7 +297,7 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 		}
 
 		transitKey := deriveTransitKey(clientProto.sharedKey, appID)
-		transport := newFileTransport(transitKey, appID, c.relayAddr())
+		transport := newFileTransport(transitKey, appID, c.relayAddr(), c.I2P, c.Tor)
 		err = transport.listen()
 		if err != nil {
 			sendErr(err)

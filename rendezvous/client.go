@@ -9,7 +9,10 @@ import (
 	"reflect"
 	"sync"
 	"sync/atomic"
+	"time"
 
+	"github.com/cretz/bine/tor"
+	"github.com/eyedeekay/sam3"
 	"github.com/gorilla/websocket"
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous/internal/msgs"
@@ -22,12 +25,14 @@ import (
 // AppID is the application identity string of the client.
 //
 // Two clients can only communicate if they have the same AppID.
-func NewClient(url, sideID, appID string, opts ...ClientOption) *Client {
+func NewClient(url, sideID, appID, i2p, tor string, opts ...ClientOption) *Client {
 	c := &Client{
 		url:         url,
 		sideID:      sideID,
 		appID:       appID,
 		pendingMsgs: make([]pendingMsg, 0, 2),
+		i2p:         i2p,
+		tor:         tor,
 
 		mailboxMsgs:           make([]MailboxEvent, 0),
 		pendingMailboxWaiters: make(map[uint32]chan int),
@@ -56,6 +61,8 @@ type Client struct {
 	appID     string
 	sideID    string
 	mailboxID string
+	i2p       string
+	tor       string
 
 	nameplate string
 
@@ -132,6 +139,36 @@ func (c *Client) Connect(ctx context.Context) (*ConnectInfo, error) {
 	}
 
 	var err error
+	if c.i2p != "" {
+		sam, err := sam3.NewSAM(c.i2p)
+		if err != nil {
+			return nil, err
+		}
+		keys, err := sam.NewKeys()
+		if err != nil {
+			return nil, err
+		}
+		stream, err := sam.NewStreamSession("wormhole-relay", keys, sam3.Options_Medium)
+		if err != nil {
+			return nil, err
+		}
+		websocket.DefaultDialer.NetDial = stream.Dial
+	} else if c.tor != "" {
+		tr, err := tor.Start(nil, nil)
+		if err != nil {
+			return nil, err
+		}
+		defer tr.Close()
+		// Wait at most a minute to start network and get
+		dialCtx, dialCancel := context.WithTimeout(context.Background(), time.Minute)
+		defer dialCancel()
+		// Make connection
+		c, err := tr.Dialer(dialCtx, nil)
+		if err != nil {
+			return nil, err
+		}
+		websocket.DefaultDialer.NetDial = c.Dial
+	}
 	c.wsClient, _, err = websocket.DefaultDialer.Dial(c.url, nil)
 	if err != nil {
 		wrappedErr := fmt.Errorf("dial %s: %s", c.url, err)

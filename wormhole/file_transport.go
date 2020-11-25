@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cretz/bine/tor"
+	"github.com/eyedeekay/sam3"
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/nacl/secretbox"
@@ -154,11 +156,13 @@ func (d *transportCryptor) writeRecord(msg []byte) error {
 	return err
 }
 
-func newFileTransport(transitKey []byte, appID, relayAddr string) *fileTransport {
+func newFileTransport(transitKey []byte, appID, relayAddr, i2p, tor string) *fileTransport {
 	return &fileTransport{
 		transitKey: transitKey,
 		appID:      appID,
 		relayAddr:  relayAddr,
+		i2p:        i2p,
+		tor:        tor,
 	}
 }
 
@@ -166,6 +170,8 @@ type fileTransport struct {
 	listener   net.Listener
 	relayConn  net.Conn
 	relayAddr  string
+	i2p        string
+	tor        string
 	transitKey []byte
 	appID      string
 }
@@ -449,13 +455,46 @@ func (t *fileTransport) listen() error {
 	if testDisableLocalListener {
 		return nil
 	}
-
-	l, err := net.Listen("tcp", ":0")
-	if err != nil {
-		return err
+	if t.i2p != "" {
+		sam, err := sam3.NewSAM(t.i2p)
+		if err != nil {
+			return err
+		}
+		keys, err := sam.NewKeys()
+		if err != nil {
+			return err
+		}
+		stream, err := sam.NewStreamSession("wormhole-server", keys, sam3.Options_Medium)
+		if err != nil {
+			return err
+		}
+		l, err := stream.Listen()
+		if err != nil {
+			return err
+		}
+		t.listener = l
+	} else if t.tor != "" {
+		tr, err := tor.Start(nil, nil)
+		if err != nil {
+			return err
+		}
+		defer tr.Close()
+		// Wait at most a few minutes to publish the service
+		listenCtx, listenCancel := context.WithTimeout(context.Background(), 3*time.Minute)
+		defer listenCancel()
+		// Create a v3 onion service to listen on any port but show as 80
+		l, err := tr.Listen(listenCtx, &tor.ListenConf{Version3: true, RemotePorts: []int{80}})
+		if err != nil {
+			return err
+		}
+		t.listener = l
+	} else {
+		l, err := net.Listen("tcp", ":0")
+		if err != nil {
+			return err
+		}
+		t.listener = l
 	}
-
-	t.listener = l
 	return nil
 }
 
@@ -463,18 +502,55 @@ func (t *fileTransport) listenRelay() error {
 	if t.relayAddr == "" {
 		return nil
 	}
-	conn, err := net.Dial("tcp", t.relayAddr)
-	if err != nil {
-		return err
+	if t.i2p != "" {
+		sam, err := sam3.NewSAM(t.i2p)
+		if err != nil {
+			return err
+		}
+		keys, err := sam.NewKeys()
+		if err != nil {
+			return err
+		}
+		stream, err := sam.NewStreamSession("wormhole-relay", keys, sam3.Options_Medium)
+		if err != nil {
+			return err
+		}
+		conn, err := stream.Dial("i2p", t.relayAddr)
+		if err != nil {
+			return err
+		}
+		t.relayConn = conn
+	} else if t.tor != "" {
+		tr, err := tor.Start(nil, nil)
+		if err != nil {
+			return err
+		}
+		defer tr.Close()
+		// Wait at most a minute to start network and get
+		dialCtx, dialCancel := context.WithTimeout(context.Background(), time.Minute)
+		defer dialCancel()
+		// Make connection
+		c, err := tr.Dialer(dialCtx, nil)
+		if err != nil {
+			return err
+		}
+		conn, err := c.DialContext(context.Background(), "tcp", t.relayAddr)
+		if err != nil {
+			return err
+		}
+		t.relayConn = conn
+	} else {
+		conn, err := net.Dial("tcp", t.relayAddr)
+		if err != nil {
+			return err
+		}
+		_, err = conn.Write(t.relayHandshakeHeader())
+		if err != nil {
+			conn.Close()
+			return err
+		}
+		t.relayConn = conn
 	}
-
-	_, err = conn.Write(t.relayHandshakeHeader())
-	if err != nil {
-		conn.Close()
-		return err
-	}
-
-	t.relayConn = conn
 	return nil
 }
 

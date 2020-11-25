@@ -43,6 +43,9 @@ type Client struct {
 	// default to 2.
 	PassPhraseComponentLength int
 
+	I2P string
+	Tor string
+
 	// VerifierOk specifies an optional hook to be called before
 	// transmitting/receiving the encrypted payload.
 	//

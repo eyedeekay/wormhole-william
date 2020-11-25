@@ -137,7 +137,7 @@ func TestWormholeSendRecvText(t *testing.T) {
 	}
 
 	if progressCallCount != 1 {
-		t.Fatalf("progressCallCount got %d expected 1",progressCallCount)
+		t.Fatalf("progressCallCount got %d expected 1", progressCallCount)
 	}
 
 	if progressSentBytes != int64(len(msgBody)) {

@@ -23,7 +23,7 @@ import (
 func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage, returnErr error) {
 	sideID := crypto.RandSideID()
 	appID := c.appID()
-	rc := rendezvous.NewClient(c.url(), sideID, appID)
+	rc := rendezvous.NewClient(c.url(), sideID, appID, c.I2P, c.Tor)
 
 	defer func() {
 		mood := rendezvous.Errory
@@ -150,7 +150,7 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 	}
 
 	transitKey := deriveTransitKey(clientProto.sharedKey, appID)
-	transport := newFileTransport(transitKey, appID, c.relayAddr())
+	transport := newFileTransport(transitKey, appID, c.relayAddr(), c.I2P, c.Tor)
 
 	transitMsg, err := transport.makeTransitMsg()
 	if err != nil {
