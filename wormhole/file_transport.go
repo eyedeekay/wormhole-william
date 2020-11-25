@@ -478,12 +478,10 @@ func (t *fileTransport) listen() error {
 		if err != nil {
 			return err
 		}
-		defer tr.Close()
 		// Wait at most a few minutes to publish the service
-		listenCtx, listenCancel := context.WithTimeout(context.Background(), 3*time.Minute)
-		defer listenCancel()
+		//listenCtx, _ := context.WithTimeout(context.Background(), 3*time.Minute)
 		// Create a v3 onion service to listen on any port but show as 80
-		l, err := tr.Listen(listenCtx, &tor.ListenConf{Version3: true, RemotePorts: []int{80}})
+		l, err := tr.Listen(context.Background(), &tor.ListenConf{Version3: true, RemotePorts: []int{80}})
 		if err != nil {
 			return err
 		}

@@ -158,10 +158,8 @@ func (c *Client) Connect(ctx context.Context) (*ConnectInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer tr.Close()
 		// Wait at most a minute to start network and get
-		dialCtx, dialCancel := context.WithTimeout(context.Background(), time.Minute)
-		defer dialCancel()
+		dialCtx, _ := context.WithTimeout(context.Background(), time.Minute)
 		// Make connection
 		c, err := tr.Dialer(dialCtx, nil)
 		if err != nil {
